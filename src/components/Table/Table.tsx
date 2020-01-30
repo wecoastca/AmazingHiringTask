@@ -1,55 +1,89 @@
 import * as React from 'react';
-import * as info from '../../../profiles.json';
+import * as profiles from '../../../profiles.json';
+import { connect } from 'react-redux';
+import { TableState } from '../../reducers/table';
 
+type Props = {};
+type State = {};
 
-type Props = {
-}
+type StoreProps = TableState;
+type StoreDispatch = {
+    onTableUpdate?: (table: TableState) => void;
+};
 
-type States = {
-    data: any
-}
+type Profile = {
+    [key: string]: string | number | boolean;
+};
 
-export class Table extends React.Component<Props, States>{
-    constructor(props: Props) {
-        super(props);
+const PROFILES: Array<Profile> = profiles;
 
-        this.state = {
-            data: info,
+class Table extends React.Component<Props & StoreProps & StoreDispatch, State> {
+    getSortedData = (): Array<Profile> => {
+        const { column, sort, reverse } = this.props;
+        const sortedByColumn = field => (a, b) => a[field] > b[field] ? -1 : 1;
 
+        switch (sort) {
+            case 'abc':
+                const sorted = PROFILES.sort(sortedByColumn(column));
+                return reverse ? sorted.reverse() : sorted;
+            default:
+                return PROFILES;
         }
-    }
-    renderTableData() {
+    };
 
-        return this.state.data.map((field, index) => {
-            let columns = Object.keys(field);
+    renderData() {
+        return this.getSortedData().map(profile => {
+            const id = btoa(JSON.stringify(profile));
 
             return (
-                <tr key={index}>
-                    {columns.map((value, i) => {
-                        return <td key={i}>{field[columns[i]]}</td>
-                    })}
+                <tr key={id}>
+                    {Object.values(profile).map(value => (
+                        <td key={`${id}-${value}`}>{value}</td>
+                    ))}
                 </tr>
             )
         })
     }
 
-    renderTableHeader() {
-        let headerKeys = Object.keys(this.state.data[0]);
-        return headerKeys.map((value, index) => {
-            return <th key={index}>{value.toUpperCase()}</th>
-        })
+    onColumnClick = column => () => {
+        const { reverse, onTableUpdate } = this.props;
+
+        onTableUpdate({ column, sort: 'abc', reverse: !Boolean(reverse) });
     }
+
+
     render() {
+
+        const columns = Object.keys(PROFILES.reduce((acc, curr) => ({ ...acc, ...curr }), {}));
         return (
             <div className="table-wrapper">
+
                 <h1 className="title">Amazing Hiring Test Table</h1>
                 <table className="table-content">
                     <tbody>
-                        <tr>{this.renderTableHeader()}</tr>
-                        {this.renderTableData()}
+                        <tr>
+                            {columns.map(column => (
+                                <th key={column} onClick={this.onColumnClick(column)}>
+                                    {column.toUpperCase()}
+                                </th>
+                            ))}
+                        </tr>
+                        {this.renderData()}
                     </tbody>
                 </table>
             </div>
         )
     }
 }
+
+const mapStateToProps = (state): StoreProps => ({
+    column: state.table.column,
+    sort: state.table.sort,
+    reverse: state.table.reverse
+});
+
+const mapDispatchToProps = dispatch => ({
+    onTableUpdate: (table) => dispatch({ type: 'TABLE/SET', value: table })
+});
+
+export default connect(mapStateToProps, mapDispatchToProps)(Table);
